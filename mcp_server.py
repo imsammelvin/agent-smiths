@@ -45,11 +45,10 @@ def create_starlette_app(mcp_server: Server, *, debug: bool = False) -> Starlett
 
 @mcp.tool()
 def get_current_date() -> str:
-    """Return the current date/time as an ISO-formatted string."""
-    return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    """Return the current date/time and day as a formatted string."""
+    now = datetime.now()
+    return now.strftime("%Y-%m-%d %H:%M:%S (%A)")
 
-
-    
 
 @mcp.tool()
 def retrieve_calendar_events(user: str, start: str, end: str):
