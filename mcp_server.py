@@ -36,63 +36,30 @@ provider = OpenAIProvider(
 model = OpenAIModel("Qwen3-8B", provider=provider)
 
 # Define response model for meeting extraction
-
-def retrieve_calendar_events(user: str, start: str, end: str):
-    """
-    Retrieve calendar events for a user within a specified time range.
-    
-    Args:
-        user: Email address of the user
-        start: Start time in ISO format (e.g., '2024-01-01T00:00:00Z')
-        end: End time in ISO format (e.g., '2024-01-31T23:59:59Z')
-    
-    Returns:
-        List of calendar events with details
-    """
-    logger.info(f"Retrieving calendar events for {user} from {start} to {end}")
+def retrieve_calendar_events(user, start, end):
     events_list = []
+    token_path = "Keys/"+user.split("@")[0]+".token"
+    user_creds = Credentials.from_authorized_user_file(token_path)
+    calendar_service = build("calendar", "v3", credentials=user_creds)
+    events_result = calendar_service.events().list(calendarId='primary', timeMin=start,timeMax=end,singleEvents=True,orderBy='startTime').execute()
+    events = events_result.get('items')
     
-    try:
-        token_path = "Keys/" + user.split("@")[0] + ".token"
-        user_creds = Credentials.from_authorized_user_file(token_path)
-        calendar_service = build("calendar", "v3", credentials=user_creds)
-        
-        events_result = calendar_service.events().list(
-            calendarId='primary', 
-            timeMin=start,
-            timeMax=end,
-            singleEvents=True,
-            orderBy='startTime'
-        ).execute()
-        
-        events = events_result.get('items', [])
-        logger.info(f"Found {len(events)} events")
-        
-        for event in events: 
-            attendee_list = []
-            try:
-                for attendee in event.get("attendees", []): 
-                    attendee_list.append(attendee['email'])
-            except: 
-                attendee_list.append("SELF")
-            
-            start_time = event["start"].get("dateTime", event["start"].get("date"))
-            end_time = event["end"].get("dateTime", event["end"].get("date"))
-            
-            events_list.append({
-                "StartTime": start_time, 
-                "EndTime": end_time, 
-                "NumAttendees": len(set(attendee_list)), 
-                "Attendees": list(set(attendee_list)),
-                "Summary": event.get("summary", "No title")
-            })
-        
-        return events_list
-        
-    except Exception as e:
-        logger.error(f"Error retrieving calendar events: {e}")
-        raise
-
+    for event in events : 
+        attendee_list = []
+        try:
+            for attendee in event["attendees"]: 
+                attendee_list.append(attendee['email'])
+        except: 
+            attendee_list.append("SELF")
+        start_time = event["start"]["dateTime"]
+        end_time = event["end"]["dateTime"]
+        events_list.append(
+            {"StartTime" : start_time, 
+             "EndTime": end_time, 
+             "NumAttendees" :len(set(attendee_list)), 
+             "Attendees" : list(set(attendee_list)),
+             "Summary" : event["summary"]})
+    return events_list
 
 mcp = FastMCP("scheduler",timeout=120000000)
 
@@ -205,7 +172,9 @@ def get_free_time_slots(attendees, duration_minutes, start_date, end_date):
     print(attendees,type(attendees))
     print(duration_minutes,type(duration_minutes))
     print(start_date,type(start_date))
+    print( datetime.fromisoformat(start_date))
     print(end_date,type(end_date))
+    print( datetime.fromisoformat(end_date))
     
 
     for user in attendees:
